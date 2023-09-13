@@ -1,8 +1,98 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import { useState, useRef, useEffect } from "react";
+import Head from "next/head";
+import Image from "next/image";
+import styles from "../styles/Home.module.css";
+import List from "../src/components/People/List";
+import logo from "../../interstellar-search/public/logo.png";
 
-export default function Home() {
+export default function Home({ people }) {
+  const [residents, setResidents] = useState([]);
+  const [_filteredresidents, setFilteredResidents] = useState([]);
+  const [planet, setPlanet] = useState("");
+  const [hasResults, setResults] = useState(0);
+  const [results, setSearchResults] = useState(1);
+  const [totalpages, SetTotalPages] = useState(2);
+  const [total, SetTotal] = useState(0);
+  const inputRef = useRef();
+  const resultsRef = useRef();
+  const [input, setInput] = useState();
+  const resultsperpage = 2;
+  useEffect(() => {
+    inputRef.current.focus();
+  }, []);
+
+  useEffect(() => {
+    if (hasResults) {
+      document.body.addEventListener("keydown", onKeyDown);
+    } else {
+      document.body.removeEventListener("keydown", onKeyDown);
+    }
+    return () => {
+      document.body.removeEventListener("keydown", onKeyDown);
+    };
+  }, [hasResults]);
+
+  const onKeyDown = (event) => {
+    const isUp = event.key === "ArrowUp";
+    const isDown = event.key === "ArrowDown";
+    const inputIsFocused = document.activeElement === inputRef.current;
+
+    const resultsItems = Array.from(resultsRef.current.children);
+
+    const activeResultIndex = resultsItems.findIndex((child) => {
+      return child.querySelector("a") === document.activeElement;
+    });
+
+    if (isUp) {
+      console.log("Going up!");
+      if (inputIsFocused) {
+        resultsItems[resultsItems.length - 1].querySelector("a").focus();
+      } else if (resultsItems[activeResultIndex - 1]) {
+        resultsItems[activeResultIndex - 1].querySelector("a").focus();
+      } else {
+        inputRef.current.focus();
+      }
+    }
+
+    if (isDown) {
+      console.log("Going down!");
+      if (inputIsFocused) {
+        resultsItems[0].querySelector("a").focus();
+      } else if (resultsItems[activeResultIndex + 1]) {
+        resultsItems[activeResultIndex + 1].querySelector("a").focus();
+      } else {
+        inputRef.current.focus();
+      }
+    }
+  };
+
+  const handleSearch = (event) => {
+    event.preventDefault();
+    setInput(input);
+    let results = people.filter(
+      ({ name }) => input && name.toLowerCase().includes(input.toLowerCase())
+    );
+    setSearchResults(results);
+    let _hasResults = results && results.length > 0;
+    setResults(_hasResults);
+  };
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+  };
+
+  const displayResults = (pagenumber, residents) => {
+    let n =
+      pagenumber == 0
+        ? pagenumber * resultsperpage
+        : --pagenumber * resultsperpage;
+    SetTotal(residents.length);
+    const _filteredData = residents.slice(n, n + resultsperpage);
+    setFilteredResidents(_filteredData);
+    SetTotalPages(Math.ceil(residents.length / resultsperpage));
+    setResults(0);
+  };
+
   return (
     <div className={styles.container}>
       <Head>
@@ -12,58 +102,110 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+        <header className={styles.header}>
+          <div className={styles.headerLogo}>
+            <Image src={logo} alt="logo" />
+          </div>
+          <div className={styles.headerSearchBar}>
+            <form className={styles.form} method="post" autoComplete="off">
+              <input
+                ref={inputRef}
+                type="search"
+                name="query"
+                onChange={(e) => {
+                  handleInputChange(e);
+                }}
+              />
+              <span>
+                <button
+                  type="submit"
+                  onClick={(e) => handleSearch(e)}
+                  className={styles.submitbutton}
+                >
+                  SEARCH
+                </button>
+              </span>
+              {hasResults && (
+                <div className={styles.autocomplete}>
+                  <ul ref={resultsRef} className={styles.people}>
+                    {results.map((result) => {
+                      return (
+                        <li key={result.url}>
+                          <a
+                            onClick={() => {
+                              setResidents(result.residents);
+                              displayResults(0, result.residents);
+                              setPlanet(result.name);
+                            }}
+                          >
+                            {result.name}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </form>
+          </div>
+        </header>
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
+        {residents.length && (
+          <div className={styles.section}>
+            <h5>
+              Showing {total} people from Planet {planet}
+            </h5>
+            <nav>
+              <ul className={styles.pagination}>
+                {/* <li className={styles.pageItem}>
+                      <a className="page-link">{'<'}</a>
+                  </li> */}
+                {new Array(totalpages).fill().map((item, index) => {
+                  return (
+                    <li className={styles.pageItem} key={index}>
+                      <a
+                        className="page-link"
+                        onClick={() => {
+                          displayResults(index, residents);
+                        }}
+                      >
+                        {++index}
+                      </a>
+                    </li>
+                  );
+                })}
+                {/*                   
+                  <li className={styles.pageItem}>
+                    <a className="page-link">{'>'}</a>
+                  </li> */}
+              </ul>
+            </nav>
+          </div>
+        )}
+        
+        {!residents.length && (<div className={styles.error}>No people on this planet</div>)}
+        {residents.length && <List residents={_filteredresidents} />}
 
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
+        <div></div>
       </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
     </div>
-  )
+  );
+}
+
+export async function getStaticProps() {
+  const pageCount = 3;
+  let people = [];
+
+  for (let i = 0; i < pageCount; i++) {
+    const response = await fetch(`https://swapi.dev/api/planets?page=${i + 1}`);
+    const data = await response.json();
+    console.log(data);
+    people = people.concat(data.results);
+  }
+
+  return {
+    props: {
+      people,
+    },
+  };
 }
